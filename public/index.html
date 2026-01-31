@@ -1,1 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resonance Live Engine</title>
+    <link href="https://vjs.zencdn.net/8.3.0/video-js.css" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; color: white; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="p-5 flex flex-col items-center">
+
+    <div id="generator-ui" class="glass p-8 rounded-xl w-full max-w-2xl mt-10">
+        <h1 class="text-2xl font-bold mb-4 text-blue-400">Stream Link Generator</h1>
+        <input type="text" id="m3u8-input" placeholder="Paste .m3u8 live link here..." 
+               class="w-full p-3 rounded bg-gray-800 border border-gray-600 mb-4 focus:outline-none focus:border-blue-500">
+        <button onclick="generateLink()" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded font-bold transition">
+            Generate Secure Live Link
+        </button>
+        
+        <div id="result" class="mt-6 hidden">
+            <p class="text-sm text-gray-400 mb-2">Share this encrypted link:</p>
+            <div class="flex gap-2">
+                <input type="text" id="output-link" readonly class="w-full p-2 bg-black rounded text-green-400 text-sm">
+                <button onclick="copyLink()" class="bg-gray-700 px-4 rounded">Copy</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="player-ui" class="hidden w-full max-w-4xl mt-10">
+        <video id="live-video" class="video-js vjs-big-play-centered vjs-16-9" controls></video>
+        <div id="error-msg" class="text-red-500 mt-4 text-center hidden">This link has expired or is invalid.</div>
+    </div>
+
+    <script src="https://vjs.zencdn.net/8.3.0/video.min.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        // Logic to show Player or Generator
+        if (token) {
+            document.getElementById('generator-ui').classList.add('hidden');
+            document.getElementById('player-ui').classList.remove('hidden');
+            initPlayer(token);
+        }
+
+        async function generateLink() {
+            const m3u8Url = document.getElementById('m3u8-input').value;
+            const res = await fetch('/api/generate-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ streamUrl: m3u8Url })
+            });
+            const data = await res.json();
+            document.getElementById('output-link').value = data.liveLink;
+            document.getElementById('result').classList.remove('hidden');
+        }
+
+        async function initPlayer(token) {
+            const res = await fetch(`/api/get-source?token=${encodeURIComponent(token)}`);
+            const data = await res.json();
+            
+            if (data.error) {
+                document.getElementById('error-msg').innerText = data.error;
+                document.getElementById('error-msg').classList.remove('hidden');
+                return;
+            }
+
+            const player = videojs('live-video');
+            player.src({ src: data.source, type: 'application/x-mpegURL' });
+            player.play();
+        }
+
+        function copyLink() {
+            const copyText = document.getElementById("output-link");
+            copyText.select();
+            document.execCommand("copy");
+            alert("Link Copied!");
+        }
+    </script>
+</body>
+</html>
 
