@@ -3,77 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resonance Premium | Live Stream Engine</title>
-    
+    <title>RESONANCE LIVE | HYBRID ENGINE</title>
     <link href="https://vjs.zencdn.net/8.3.0/video-js.css" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    
     <style>
-        body { 
-            background: radial-gradient(circle at top blue, #0f172a 0%, #020617 100%);
-            color: #f8fafc;
-            font-family: 'Inter', sans-serif;
-            min-height: 100vh;
-        }
-        .luxury-glass {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-        .neon-border:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-        }
-        .btn-premium {
-            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .btn-premium:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
-            filter: brightness(1.1);
-        }
-        .video-js {
-            border-radius: 12px;
-            overflow: hidden;
-            border: 2px solid rgba(255,255,255,0.05);
-        }
+        body { background: #020617; color: #f8fafc; font-family: sans-serif; }
+        .luxury-glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .btn-premium { background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); }
     </style>
 </head>
-<body class="p-4 md:p-10 flex flex-col items-center">
+<body class="p-4 flex flex-col items-center min-h-screen">
 
-    <header class="text-center mb-10">
-        <h1 class="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-            RESONANCE LIVE 🚀 
-        </h1>
-        <p class="text-gray-400 mt-2 text-sm md:text-base">Secure, Encrypted & Ultra-Low Latency Streaming By Your MS</p>
+    <header class="text-center my-10">
+        <h1 class="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">RESONANCE LIVE 🚀</h1>
+        <p class="text-gray-400">Direct Bypass Mode Active</p>
     </header>
 
-    <div id="generator-ui" class="luxury-glass p-6 md:p-10 rounded-3xl w-full max-w-2xl">
-        <div class="space-y-6">
-            <div>
-                <label class="block text-xs font-semibold text-gray-500 uppercase mb-2 ml-1">Cloudfront Stream Source (M3U8)</label>
-                <input type="text" id="m3u8-input" placeholder="https://d19...cloudfront.net/index_4.m3u8?signature=..." 
-                       class="w-full p-4 rounded-xl bg-slate-900/50 border border-slate-700 neon-border transition-all outline-none text-blue-300">
-            </div>
-            
-            <button onclick="generateLink()" class="w-full btn-premium p-4 rounded-xl font-bold text-white">
-                Generate Secure Link
-            </button>
-            
-            <div id="result" class="mt-8 hidden space-y-3 animate-pulse">
-                <p class="text-sm text-green-400 font-medium">Link successfully encrypted with Cloudfront Signatures!</p>
-                <div class="flex flex-col md:flex-row gap-3">
-                    <input type="text" id="output-link" readonly 
-                           class="flex-1 p-3 bg-black/40 border border-green-900/30 rounded-lg text-green-300 text-xs truncate">
-                    <button onclick="copyLink()" class="bg-slate-700 hover:bg-slate-600 px-6 py-3 rounded-lg font-bold text-sm transition">
-                        COPY
-                    </button>
-                </div>
-            </div>
+    <div id="generator-ui" class="luxury-glass p-8 rounded-3xl w-full max-w-2xl">
+        <input type="text" id="m3u8-input" placeholder="Paste Cloudfront URL here..." 
+               class="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 mb-4 outline-none text-blue-300">
+        <button onclick="generateLink()" class="w-full btn-premium p-4 rounded-xl font-bold">Generate Bypass Link</button>
+        <div id="result" class="mt-6 hidden">
+            <input type="text" id="output-link" readonly class="w-full p-3 bg-black/40 rounded text-xs text-green-300">
+            <button onclick="copyLink()" class="mt-2 text-sm bg-slate-700 px-4 py-2 rounded">Copy Link</button>
         </div>
     </div>
 
@@ -81,9 +33,7 @@
         <div class="luxury-glass p-2 rounded-2xl">
             <video id="live-video" class="video-js vjs-big-play-centered vjs-16-9" controls preload="auto"></video>
         </div>
-        <div id="error-msg" class="text-red-400 mt-6 text-center font-medium hidden p-4 bg-red-900/20 rounded-xl border border-red-900/50">
-            ⚠️ The stream link has expired or the provider (PW) has blocked the IP. Check Render logs.
-        </div>
+        <div id="error-msg" class="text-red-400 mt-6 text-center hidden">⚠️ Link Expired or Auth Failed.</div>
     </div>
 
     <script src="https://vjs.zencdn.net/8.3.0/video.min.js"></script>
@@ -99,20 +49,15 @@
 
         async function generateLink() {
             const m3u8Url = document.getElementById('m3u8-input').value;
-            if(!m3u8Url) return alert("Please paste the Cloudfront link!");
-
-            try {
-                const res = await fetch('/api/generate-link', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ streamUrl: m3u8Url })
-                });
-                const data = await res.json();
-                document.getElementById('output-link').value = data.liveLink;
-                document.getElementById('result').classList.remove('hidden');
-            } catch (err) {
-                alert("Server error, check if Render is active.");
-            }
+            if(!m3u8Url) return alert("Paste URL!");
+            const res = await fetch('/api/generate-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ streamUrl: m3u8Url })
+            });
+            const data = await res.json();
+            document.getElementById('output-link').value = data.liveLink;
+            document.getElementById('result').classList.remove('hidden');
         }
 
         async function initPlayer(token) {
@@ -120,45 +65,29 @@
                 const res = await fetch(`/api/get-source?token=${encodeURIComponent(token)}`);
                 const data = await res.json();
                 
-                if (data.error) {
-                    document.getElementById('error-msg').classList.remove('hidden');
-                    return;
-                }
+                // CRITICAL: Injecting Headers globally for all video segments
+                videojs.Vhs.xhr.beforeRequest = function(options) {
+                    options.headers = options.headers || {};
+                    options.headers['Authorization'] = `Bearer ${data.auth}`;
+                    options.headers['X-Requested-With'] = 'com.pw.physicswallah';
+                    return options;
+                };
 
                 const player = videojs('live-video', {
-                    fluid: true,
-                    autoplay: true,
-                    liveui: true,
-                    responsive: true,
-                    playbackRates: [0.5, 1, 1.25, 1.5, 2],
-                    html5: {
-                        vhs: { overrideNative: true },
-                        nativeAudioTracks: false,
-                        nativeVideoTracks: false
-                    }
+                    fluid: true, autoplay: true,
+                    html5: { vhs: { overrideNative: true } }
                 });
 
-                player.src({ 
-                    src: data.source, 
-                    type: 'application/x-mpegURL'
-                });
-
-                player.on('error', function() {
-                    const error = player.error();
-                    console.log("HLS Error:", error.code, error.message);
-                    document.getElementById('error-msg').classList.remove('hidden');
-                });
-                
+                player.src({ src: data.source, type: 'application/x-mpegURL' });
             } catch (err) {
                 document.getElementById('error-msg').classList.remove('hidden');
             }
         }
 
         function copyLink() {
-            const copyText = document.getElementById("output-link");
-            copyText.select();
+            document.getElementById("output-link").select();
             document.execCommand("copy");
-            alert("Link copied! Now paste in Chrome.");
+            alert("Copied!");
         }
     </script>
 </body>
