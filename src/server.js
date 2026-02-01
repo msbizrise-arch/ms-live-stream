@@ -13,7 +13,7 @@ let officialAppToken = "";
 try {
     const tokenData = JSON.parse(fs.readFileSync(path.join(__dirname, '../token.json'), 'utf8'));
     officialAppToken = tokenData.app_token.trim();
-} catch (e) { console.log("Token missing"); }
+} catch (e) { console.log("Token error"); }
 
 app.use(cors());
 app.use(express.json());
@@ -52,19 +52,14 @@ app.get('/proxy-stream', async (req, res) => {
             method: 'get',
             url: targetUrl,
             headers: { 
-                'host': parsedUrl.host,
-                'connection': 'keep-alive',
-                'accept': '*/*',
-                'authorization': `Bearer ${officialAppToken}`,
-                'user-agent': 'Mozilla/5.0 (Linux; Android 12; Pixel 6 Build/SD1A.210817.036; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/121.0.6167.101 Mobile Safari/537.36',
-                'origin': 'https://www.physicswallah.com',
-                'x-requested-with': 'com.pw.physicswallah', // Asli App ID
-                'sec-fetch-site': 'cross-site',
-                'sec-fetch-mode': 'cors',
-                'sec-fetch-dest': 'empty',
-                'referer': 'https://www.physicswallah.com/',
-                'accept-encoding': 'gzip, deflate, br',
-                'accept-language': 'en-US,en;q=0.9'
+                'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 12; Pixel 6 Build/SD1A.210817.036)',
+                'Authorization': `Bearer ${officialAppToken}`,
+                'X-Requested-With': 'com.pw.physicswallah',
+                'Host': parsedUrl.host,
+                'Connection': 'Keep-Alive',
+                'Accept-Encoding': 'gzip',
+                'Origin': 'https://www.physicswallah.com',
+                'Referer': 'https://www.physicswallah.com/'
             },
             responseType: targetUrl.includes('.m3u8') ? 'text' : 'stream'
         });
@@ -73,6 +68,7 @@ app.get('/proxy-stream', async (req, res) => {
             let content = response.data;
             content = content.replace(/^(?!#)(.+)$/gm, (match) => {
                 let fullUrl = match.startsWith('http') ? match : baseUrl + match;
+                // Cloudfront signatures ko preserve karna zaroori hai
                 if (parsedUrl.search && !fullUrl.includes('?')) {
                     fullUrl += parsedUrl.search;
                 }
@@ -85,12 +81,11 @@ app.get('/proxy-stream', async (req, res) => {
             response.data.pipe(res);
         }
     } catch (e) {
-        // Detailed Logging
         const status = e.response ? e.response.status : 500;
-        console.error(`!!! CRITICAL PROXY FAIL !!! Status: ${status} | Message: ${e.message}`);
-        res.status(status).send(`Stream Access Denied: ${status}`);
+        console.error(`Status: ${status} | PW Blocked Request`);
+        res.status(status).send("Access Denied");
     }
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Engine Ready`));
+app.listen(PORT, () => console.log(`Bypass Engine Ready`));
