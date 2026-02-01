@@ -1,5 +1,5 @@
 {
-  "name": "resonance-live-engine",
+  "name": "ms-live-stream",
   "version": "1.0.0",
   "main": "src/server.js",
   "dependencies": {
