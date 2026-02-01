@@ -76,7 +76,8 @@ app.get('/proxy-stream', async (req, res) => {
             headers: {
                 'Authorization': `Bearer ${officialAppToken}`, // Injecting the secret token
                 'User-Agent': 'Mozilla/5.0 (Linux; Android 10) ResonanceApp/1.0',
-                'Referer': 'https://resonance.edu.in/' // Example: App ka domain
+                'Referer': 'https://www.physicswallah.com/', // Yeh asli domain hai
+            'Origin': 'https://www.physicswallah.com'    // Yeh bhi add kar do security bypass ke liye
             }
         });
 
