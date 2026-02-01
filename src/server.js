@@ -12,8 +12,8 @@ const SECRET_KEY = process.env.SECRET_KEY || "SuperSecret123";
 let officialAppToken = "";
 try {
     const tokenData = JSON.parse(fs.readFileSync(path.join(__dirname, '../token.json'), 'utf8'));
-    officialAppToken = tokenData.app_token;
-} catch (e) { console.log("Token logic ready"); }
+    officialAppToken = tokenData.app_token.trim(); // Auto-clean spaces
+} catch (e) { console.log("Token load error"); }
 
 app.use(cors());
 app.use(express.json());
@@ -41,11 +41,11 @@ app.get('/api/get-source', (req, res) => {
     } catch (e) { res.status(400).json({ error: "Invalid" }); }
 });
 
-// THE MASTER PROXY: It rewrites the M3U8 content
 app.get('/proxy-stream', async (req, res) => {
     try {
         const encodedUrl = req.query.url;
         const targetUrl = Buffer.from(encodedUrl, 'base64').toString('utf-8');
+        const parsedUrl = new URL(targetUrl);
         const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
 
         const response = await axios({
@@ -53,28 +53,33 @@ app.get('/proxy-stream', async (req, res) => {
             url: targetUrl,
             headers: { 
                 'Authorization': `Bearer ${officialAppToken}`,
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36',
                 'Referer': 'https://www.physicswallah.com/',
-                'Origin': 'https://www.physicswallah.com'
-            }
+                'Origin': 'https://www.physicswallah.com',
+                'Accept': '*/*',
+                'Connection': 'keep-alive'
+            },
+            responseType: targetUrl.includes('.m3u8') ? 'text' : 'stream'
         });
 
-        let content = response.data;
-
-        // Agar file .m3u8 hai, toh andar ke links ko hamare proxy se badlo
         if (targetUrl.includes('.m3u8')) {
+            let content = response.data;
             content = content.replace(/^(?!#)(.+)$/gm, (match) => {
-                const fullUrl = match.startsWith('http') ? match : baseUrl + match;
+                let fullUrl = match.startsWith('http') ? match : baseUrl + match;
+                if (parsedUrl.search && !fullUrl.includes('?')) {
+                    fullUrl += parsedUrl.search;
+                }
                 return `/proxy-stream?url=${encodeURIComponent(Buffer.from(fullUrl).toString('base64'))}`;
             });
             res.setHeader('Content-Type', 'application/x-mpegURL');
+            res.send(content);
         } else {
-            res.setHeader('Content-Type', 'video/MP2T'); // For .ts chunks
+            res.setHeader('Content-Type', 'video/MP2T');
+            response.data.pipe(res);
         }
-
-        res.send(content);
     } catch (e) {
-        res.status(500).send("Stream Error");
+        console.log(`Proxy Failed: ${e.message}`);
+        res.status(e.response ? e.response.status : 500).send("Access Denied");
     }
 });
 
