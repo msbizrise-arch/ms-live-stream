@@ -2,32 +2,31 @@ const express = require('express');
 const cors = require('cors');
 const CryptoJS = require('crypto-js');
 const path = require('path');
-const axios = require('axios'); // Isse app ka data fetch hoga
+const axios = require('axios');
 const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
 const SECRET_KEY = process.env.SECRET_KEY || "SuperSecret123";
 
-// 1. Official App Token Load Karo (App ki file se)
+// 1. Official App Token Load
 let officialAppToken = "";
 try {
     const tokenData = JSON.parse(fs.readFileSync(path.join(__dirname, '../token.json'), 'utf8'));
     officialAppToken = tokenData.app_token;
 } catch (e) {
-    console.log("Warning: token.json not found. Request will proceed without custom headers.");
+    console.log("Critical: token.json missing or invalid.");
 }
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// [Logic 1] Generate Encrypted Link
 app.post('/api/generate-link', (req, res) => {
     const { streamUrl } = req.body;
     if (!streamUrl) return res.status(400).json({ error: "URL is required" });
 
-    const expiry = Date.now() + (3 * 60 * 60 * 1000); // 3 Hours
+    const expiry = Date.now() + (3 * 60 * 60 * 1000);
     const dataToEncrypt = JSON.stringify({ url: streamUrl, exp: expiry });
     
     const encrypted = CryptoJS.AES.encrypt(dataToEncrypt, SECRET_KEY).toString();
@@ -37,12 +36,10 @@ app.post('/api/generate-link', (req, res) => {
     res.json({ liveLink });
 });
 
-// [Logic 2] Watch Route
 app.get('/watch', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// [Logic 3] The Decryptor & Source Provider
 app.get('/api/get-source', (req, res) => {
     try {
         const token = req.query.token;
@@ -54,7 +51,7 @@ app.get('/api/get-source', (req, res) => {
             return res.status(403).json({ error: "Link Expired" });
         }
 
-        // Hum direct URL dene ke bajaye Proxy URL denge taaki App Token attach ho sake
+        // Proxy URL with Base64 encoding
         const proxyUrl = `/proxy-stream?url=${encodeURIComponent(Buffer.from(decryptedData.url).toString('base64'))}`;
         res.json({ source: proxyUrl });
     } catch (e) {
@@ -62,29 +59,35 @@ app.get('/api/get-source', (req, res) => {
     }
 });
 
-// [Logic 4] THE PROXY ENGINE (Ye hi tumhare app ka security bypass karega)
+// [Logic 4] THE ENHANCED PROXY ENGINE
 app.get('/proxy-stream', async (req, res) => {
     try {
         const encodedUrl = req.query.url;
         const targetUrl = Buffer.from(encodedUrl, 'base64').toString('utf-8');
 
-        // Render Server App ko request bhejega 'Official Token' ke saath
         const response = await axios({
             method: 'get',
             url: targetUrl,
             responseType: 'stream',
+            timeout: 10000,
             headers: {
-                'Authorization': `Bearer ${officialAppToken}`, // Injecting the secret token
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10) ResonanceApp/1.0',
-                'Referer': 'https://www.physicswallah.com/', // Yeh asli domain hai
-            'Origin': 'https://www.physicswallah.com'    // Yeh bhi add kar do security bypass ke liye
+                'Authorization': `Bearer ${officialAppToken}`,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Referer': 'https://www.physicswallah.com/',
+                'Origin': 'https://www.physicswallah.com',
+                'Accept': '*/*',
+                'Cache-Control': 'no-cache'
             }
         });
 
-        // App se jo data aa raha hai use seedha Chrome ko 'Pipe' kar do
+        // Set correct headers for HLS streaming
+        res.setHeader('Content-Type', 'application/x-mpegURL');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        
         response.data.pipe(res);
     } catch (e) {
-        res.status(500).send("Bypass Failed: App server rejected the token.");
+        console.error("Proxy Failed:", e.message);
+        res.status(500).json({ error: "Bypass Failed", detail: e.message });
     }
 });
 
