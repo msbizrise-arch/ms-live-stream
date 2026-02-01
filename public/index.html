@@ -92,7 +92,6 @@
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
 
-        // Logic: Show Player if token exists, else show Generator
         if (token) {
             document.getElementById('generator-ui').classList.add('hidden');
             document.getElementById('player-ui').classList.remove('hidden');
@@ -127,16 +126,29 @@
                     return;
                 }
 
+                // Updated Player Config for better Proxy handling
                 const player = videojs('live-video', {
                     fluid: true,
                     autoplay: 'muted',
-                    liveui: true
+                    liveui: true,
+                    html5: {
+                        vhs: {
+                            overrideNative: true
+                        },
+                        nativeAudioTracks: false,
+                        nativeVideoTracks: false
+                    }
                 });
 
-                // Correct Logic: Using the proxy path returned by backend
                 player.src({ 
                     src: data.source, 
-                    type: 'application/x-mpegURL' 
+                    type: 'application/x-mpegURL',
+                    withCredentials: false
+                });
+
+                player.on('error', function() {
+                    console.log("Player Error: Attempting to fix...");
+                    document.getElementById('error-msg').classList.remove('hidden');
                 });
                 
             } catch (err) {
