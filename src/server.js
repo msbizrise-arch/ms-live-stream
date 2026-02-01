@@ -13,12 +13,13 @@ let officialAppToken = "";
 try {
     const tokenData = JSON.parse(fs.readFileSync(path.join(__dirname, '../token.json'), 'utf8'));
     officialAppToken = tokenData.app_token.trim();
-} catch (e) { console.log("Token error"); }
+} catch (e) { console.log("Token error: Check token.json"); }
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// Secure Link Generation
 app.post('/api/generate-link', (req, res) => {
     const { streamUrl } = req.body;
     const expiry = Date.now() + (3 * 60 * 60 * 1000); 
@@ -30,62 +31,21 @@ app.post('/api/generate-link', (req, res) => {
 
 app.get('/watch', (req, res) => { res.sendFile(path.join(__dirname, '../public/index.html')); });
 
+// Client fetch data for bypass
 app.get('/api/get-source', (req, res) => {
     try {
         const token = req.query.token;
         const decoded = Buffer.from(token, 'base64').toString('utf-8');
         const bytes = CryptoJS.AES.decrypt(decoded, SECRET_KEY);
         const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
-        const proxyUrl = `/proxy-stream?url=${encodeURIComponent(Buffer.from(decryptedData.url).toString('base64'))}`;
-        res.json({ source: proxyUrl });
-    } catch (e) { res.status(400).json({ error: "Invalid" }); }
-});
-
-app.get('/proxy-stream', async (req, res) => {
-    try {
-        const encodedUrl = req.query.url;
-        const targetUrl = Buffer.from(encodedUrl, 'base64').toString('utf-8');
-        const parsedUrl = new URL(targetUrl);
-        const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1);
-
-        const response = await axios({
-            method: 'get',
-            url: targetUrl,
-            headers: { 
-                'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 12; Pixel 6 Build/SD1A.210817.036)',
-                'Authorization': `Bearer ${officialAppToken}`,
-                'X-Requested-With': 'com.pw.physicswallah',
-                'Host': parsedUrl.host,
-                'Connection': 'Keep-Alive',
-                'Accept-Encoding': 'gzip',
-                'Origin': 'https://www.physicswallah.com',
-                'Referer': 'https://www.physicswallah.com/'
-            },
-            responseType: targetUrl.includes('.m3u8') ? 'text' : 'stream'
+        
+        // Return original URL and Auth to Client
+        res.json({ 
+            source: decryptedData.url,
+            auth: officialAppToken 
         });
-
-        if (targetUrl.includes('.m3u8')) {
-            let content = response.data;
-            content = content.replace(/^(?!#)(.+)$/gm, (match) => {
-                let fullUrl = match.startsWith('http') ? match : baseUrl + match;
-                // Cloudfront signatures ko preserve karna zaroori hai
-                if (parsedUrl.search && !fullUrl.includes('?')) {
-                    fullUrl += parsedUrl.search;
-                }
-                return `/proxy-stream?url=${encodeURIComponent(Buffer.from(fullUrl).toString('base64'))}`;
-            });
-            res.setHeader('Content-Type', 'application/x-mpegURL');
-            res.send(content);
-        } else {
-            res.setHeader('Content-Type', 'video/MP2T');
-            response.data.pipe(res);
-        }
-    } catch (e) {
-        const status = e.response ? e.response.status : 500;
-        console.error(`Status: ${status} | PW Blocked Request`);
-        res.status(status).send("Access Denied");
-    }
+    } catch (e) { res.status(400).json({ error: "Invalid Token" }); }
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Bypass Engine Ready`));
+app.listen(PORT, () => console.log(`Hybrid Shield Active on Port ${PORT}`));
